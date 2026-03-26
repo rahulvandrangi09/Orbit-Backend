@@ -16,7 +16,7 @@ connectDB();
 const app = express();
 const server = http.createServer(app);
 
-const CLIENT_URL = "https://orbit-frontend-g6um.onrender.com/";
+const CLIENT_URL = "https://orbit-frontend-g6um.onrender.com";
 
 app.use(cors({ origin: CLIENT_URL, credentials: true }));
 app.use(express.json());
