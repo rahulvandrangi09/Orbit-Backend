@@ -111,6 +111,10 @@ io.on("connection", (socket) => {
   });
 });
 
+app.get("/", (req, res) => {
+  res.send("Welcome to the Orbit Backend!");
+});
+
 const PORT = process.env.PORT || 3000; // Render will provide the PORT env var
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Orbit Server launched at port ${PORT}`);
