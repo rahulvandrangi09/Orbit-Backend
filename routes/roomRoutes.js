@@ -3,7 +3,8 @@ import {
   createRoom,
   getPublicRooms,
   getUserRooms,
-  getMessages
+  getMessages,
+  getRoomByToken
 } from "../controllers/roomController.js";
 
 import {protect} from "../middleware/authMiddleware.js";
@@ -20,5 +21,7 @@ router.get("/public", getPublicRooms);
 router.get("/my", protect, getUserRooms);
 
 router.get("/:roomId/messages",protect , getMessages);
+
+router.get("/token/:token", protect, getRoomByToken);
 
 export default router;

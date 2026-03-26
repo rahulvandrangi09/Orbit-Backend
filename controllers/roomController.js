@@ -25,7 +25,7 @@ export const createRoom = async (req, res) => {
     });
 
     let inviteLink = null;
-
+    const FRONTEND_URL = "http://localhost:5173";
     if (type === "PRIVATE") {
       const token = crypto.randomBytes(16).toString("hex");
 
@@ -36,7 +36,9 @@ export const createRoom = async (req, res) => {
         },
       });
 
-      inviteLink = `http://localhost:5173/privateroom/${invite.token}`;
+      inviteLink = `${FRONTEND_URL}/privateroom/${invite.token}`;
+    } else {
+      inviteLink = `${FRONTEND_URL}/publicroom/${room.id}`;
     }
 
     res.json({
@@ -107,17 +109,54 @@ export const getUserRooms = async (req, res) => {
     res.status(500).json({ message: "Failed to fetch user rooms" });
   }
 };
-
 export const getMessages = async (req, res) => {
   try {
+    const { roomId } = req.params;
+
+    // 1. Validation check
+    if (!roomId) {
+      return res.status(400).json({ message: "Room ID is required" });
+    }
+
+    // 2. Optimized Fetch
     const messages = await prisma.message.findMany({
-      where: { roomId: req.params.roomId },
-      include: { sender: true },
+      where: { roomId: roomId },
+      include: { 
+        sender: {
+          select: { username: true } // Only fetch what we need to speed it up
+        } 
+      },
       orderBy: { createdAt: "asc" },
+      take: 50, // 3. Limit to last 50 messages to ensure it loads FAST
     });
 
-    res.json({messages});
+    res.json({ messages });
   } catch (err) {
-    res.status(500).json({ message: "Error fetching messages" });
+    // 4. Critical: Log the actual error to your console so you can debug it
+    console.error("❌ Database Error in getMessages:", err.message);
+    res.status(500).json({ 
+      message: "Error fetching messages", 
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined 
+    });
+  }
+};
+
+// Add this new function to roomController.js
+export const getRoomByToken = async (req, res) => {
+  try {
+    const { token } = req.params;
+    
+    const invite = await prisma.inviteLink.findUnique({
+      where: { token },
+      include: { room: true }
+    });
+
+    if (!invite) {
+      return res.status(404).json({ message: "Invalid or expired invite link" });
+    }
+
+    res.json({ roomId: invite.room.id, roomName: invite.room.name });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
   }
 };
