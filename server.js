@@ -22,6 +22,10 @@ app.use(cors({ origin: CLIENT_URL, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+
+app.get("/", (req, res) => {
+  res.send("Welcome to the Orbit Backend!");
+});
 app.use("/api/auth", authRoutes);
 app.use("/api/rooms", roomRoutes);
 
@@ -109,10 +113,6 @@ io.on("connection", (socket) => {
     }
     console.log(`User disconnected: ${socket.username}`);
   });
-});
-
-app.get("/", (req, res) => {
-  res.send("Welcome to the Orbit Backend!");
 });
 
 const PORT = process.env.PORT || 3000; // Render will provide the PORT env var
