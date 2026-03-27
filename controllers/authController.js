@@ -30,41 +30,33 @@ export const signup = async (req, res) => {
     });
 
     if (existingUser) {
-      // If user exists but isn't verified, we could resend the OTP here, 
-      // but for simplicity, let's just block it if the username/email is taken.
       return res.status(400).json({ message: "User already exists" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Generate a 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // Valid for 5 mins
-
-    // Create unverified user
+    // 🔥 FIX: Set isVerified to true immediately and skip OTP generation
     const user = await prisma.user.create({
       data: {
         username,
         email,
         passwordHash: hashedPassword,
-        otp,
-        otpExpiresAt,
+        isVerified: true, // Mark as verified instantly
       },
     });
 
-    // Send the email
-    await transporter.sendMail({
-      from: `"Orbit Command" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: "Verify your Orbit Coordinates (OTP)",
-      html: `<h2>Welcome to Orbit, ${username}!</h2>
-             <p>Your verification code is: <strong>${otp}</strong></p>
-             <p>This code will self-destruct in 5 minutes.</p>`,
+    const token = generateToken(user.id);
+
+    res.status(201).json({
+      message: "User created successfully",
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        createdAt: user.createdAt,
+      },
     });
-
-    // Notice: We do NOT send the JWT token here anymore!
-    res.status(201).json({ message: "OTP sent to email. Please verify." });
-
   } catch (error) {
     res.status(500).json({ message: "Signup error", error: error.message });
   }
@@ -125,10 +117,10 @@ export const login = async (req, res) => {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
-    // 🔥 Block login if not verified
-    if (!user.isVerified) {
-      return res.status(403).json({ message: "Please verify your email first" });
-    }
+    // // 🔥 Block login if not verified
+    // if (!user.isVerified) {
+    //   return res.status(403).json({ message: "Please verify your email first" });
+    // }
 
     // Compare password
     const isMatch = await bcrypt.compare(password, user.passwordHash);
