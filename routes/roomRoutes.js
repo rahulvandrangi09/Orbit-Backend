@@ -4,7 +4,8 @@ import {
   getPublicRooms,
   getUserRooms,
   getMessages,
-  getRoomByToken
+  getRoomByToken,
+  deleteRoom
 } from "../controllers/roomController.js";
 
 import {protect} from "../middleware/authMiddleware.js";
@@ -23,5 +24,8 @@ router.get("/my", protect, getUserRooms);
 router.get("/:roomId/messages",protect , getMessages);
 
 router.get("/token/:token", protect, getRoomByToken);
+
+router.delete('/:roomId', protect, deleteRoom);
+
 
 export default router;

@@ -160,3 +160,41 @@ export const getRoomByToken = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
+// Add this to the bottom of your roomController.js
+
+export const deleteRoom = async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const userId = req.user.id;
+
+    // 1. Find the room to verify ownership
+    const room = await prisma.room.findUnique({
+      where: { id: roomId },
+    });
+
+    if (!room) {
+      return res.status(404).json({ message: "Room not found" });
+    }
+
+    // 2. Security Check: Only the creator can delete the room
+    if (room.createdById !== userId) {
+      return res.status(403).json({ message: "Access Denied: Only the creator can delete this room." });
+    }
+
+    // 3. Safe Deletion: Use a transaction to delete all related data first
+    // This prevents Prisma Foreign Key constraint errors
+    await prisma.$transaction([
+      prisma.message.deleteMany({ where: { roomId } }),
+      prisma.inviteLink.deleteMany({ where: { roomId } }),
+      prisma.roomMember.deleteMany({ where: { roomId } }),
+      prisma.room.delete({ where: { id: roomId } }),
+    ]);
+
+    res.json({ message: "Room permanently deleted from orbit." });
+  } catch (err) {
+    console.error("Delete Room Error:", err);
+    res.status(500).json({ message: "Failed to delete room" });
+  }
+};
