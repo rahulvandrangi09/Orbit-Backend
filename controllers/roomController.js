@@ -109,30 +109,33 @@ export const getUserRooms = async (req, res) => {
     res.status(500).json({ message: "Failed to fetch user rooms" });
   }
 };
+// Inside roomController.js
+
 export const getMessages = async (req, res) => {
   try {
     const { roomId } = req.params;
 
-    // 1. Validation check
     if (!roomId) {
       return res.status(400).json({ message: "Room ID is required" });
     }
 
-    // 2. Optimized Fetch
+    // 1. Fetch the LAST 20 messages by ordering DESCENDING first
     const messages = await prisma.message.findMany({
       where: { roomId: roomId },
       include: { 
         sender: {
-          select: { username: true } // Only fetch what we need to speed it up
+          select: { username: true } 
         } 
       },
-      orderBy: { createdAt: "asc" },
-      take: 50, // 3. Limit to last 50 messages to ensure it loads FAST
+      orderBy: { createdAt: "desc" }, // 🔥 Get newest first
+      take: 20, // 🔥 Limit to the 20 most recent
     });
 
-    res.json({ messages });
+    // 2. Reverse the array so the UI displays them chronologically (oldest to newest)
+    const chronologicalMessages = messages.reverse();
+
+    res.json({ messages: chronologicalMessages });
   } catch (err) {
-    // 4. Critical: Log the actual error to your console so you can debug it
     console.error("❌ Database Error in getMessages:", err.message);
     res.status(500).json({ 
       message: "Error fetching messages", 

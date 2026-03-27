@@ -20,6 +20,11 @@ model User {
   email         String         @unique
   passwordHash  String
 
+  isVerified    Boolean        @default(false)
+  otp           String?        
+  otpExpiresAt  DateTime?
+
+
   // Rooms created by this user
   createdRooms  Room[]         @relation("RoomCreator")
 

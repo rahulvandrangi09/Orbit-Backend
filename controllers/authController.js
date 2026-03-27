@@ -1,9 +1,16 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-
+import nodemailer from "nodemailer";
 const prisma = new PrismaClient();
 
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 
 const generateToken = (userId) => {
   return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
@@ -16,46 +23,92 @@ export const signup = async (req, res) => {
   try {
     const { username, email, password } = req.body;
 
-    // Check existing user
     const existingUser = await prisma.user.findFirst({
-      where: {
-        OR: [{ email }, { username }],
-      },
+      where: { OR: [{ email }, { username }] },
     });
 
     if (existingUser) {
+      // If user exists but isn't verified, we could resend the OTP here, 
+      // but for simplicity, let's just block it if the username/email is taken.
       return res.status(400).json({ message: "User already exists" });
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user
+    // Generate a 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // Valid for 5 mins
+
+    // Create unverified user
     const user = await prisma.user.create({
       data: {
         username,
         email,
         passwordHash: hashedPassword,
+        otp,
+        otpExpiresAt,
       },
     });
 
-    const token = generateToken(user.id);
-
-    res.status(201).json({
-      message: "User created successfully",
-      token,
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        createdAt: user.createdAt,
-      },
+    // Send the email
+    await transporter.sendMail({
+      from: `"Orbit Command" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: "Verify your Orbit Coordinates (OTP)",
+      html: `<h2>Welcome to Orbit, ${username}!</h2>
+             <p>Your verification code is: <strong>${otp}</strong></p>
+             <p>This code will self-destruct in 5 minutes.</p>`,
     });
+
+    // Notice: We do NOT send the JWT token here anymore!
+    res.status(201).json({ message: "OTP sent to email. Please verify." });
+
   } catch (error) {
     res.status(500).json({ message: "Signup error", error: error.message });
   }
 };
 
+// 🟢 PHASE 2: VERIFY OTP
+export const verifyOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (user.isVerified) return res.status(400).json({ message: "Already verified" });
+    
+    // Check if OTP matches and is not expired
+    if (user.otp !== otp || user.otpExpiresAt < new Date()) {
+      return res.status(400).json({ message: "Invalid or expired OTP" });
+    }
+
+    // Mark as verified and clear the OTP
+    const verifiedUser = await prisma.user.update({
+      where: { email },
+      data: {
+        isVerified: true,
+        otp: null,
+        otpExpiresAt: null,
+      },
+    });
+
+    // NOW we give them the token to enter the app
+    const token = generateToken(verifiedUser.id);
+
+    res.status(200).json({
+      message: "Verification successful",
+      token,
+      user: {
+        id: verifiedUser.id,
+        username: verifiedUser.username,
+        email: verifiedUser.email,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Verification error", error: error.message });
+  }
+};
 // 🔵 LOGIN
 export const login = async (req, res) => {
   try {
@@ -68,6 +121,11 @@ export const login = async (req, res) => {
 
     if (!user) {
       return res.status(400).json({ message: "Invalid credentials" });
+    }
+
+    // 🔥 Block login if not verified
+    if (!user.isVerified) {
+      return res.status(403).json({ message: "Please verify your email first" });
     }
 
     // Compare password
