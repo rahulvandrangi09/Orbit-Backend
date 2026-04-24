@@ -8,7 +8,7 @@ router.post("/signup", signup);
 router.post("/login", login);
 router.post("/logout", logout);
 router.post("/verify-otp", verifyOtp);
-// Example protected route
+
 router.get("/me", protect, (req, res) => {
   res.json(req.user);
 });

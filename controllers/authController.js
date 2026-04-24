@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 465,
-  secure: true, // true for 465, false for other ports
+  secure: true,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
@@ -20,7 +20,6 @@ const generateToken = (userId) => {
   });
 };
 
-// 🟢 SIGNUP
 export const signup = async (req, res) => {
   try {
     const { username, email, password } = req.body;
@@ -35,13 +34,12 @@ export const signup = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 🔥 FIX: Set isVerified to true immediately and skip OTP generation
     const user = await prisma.user.create({
       data: {
         username,
         email,
         passwordHash: hashedPassword,
-        isVerified: true, // Mark as verified instantly
+        isVerified: true,
       },
     });
 
@@ -62,7 +60,6 @@ export const signup = async (req, res) => {
   }
 };
 
-// 🟢 PHASE 2: VERIFY OTP
 export const verifyOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -72,12 +69,10 @@ export const verifyOtp = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
     if (user.isVerified) return res.status(400).json({ message: "Already verified" });
     
-    // Check if OTP matches and is not expired
     if (user.otp !== otp || user.otpExpiresAt < new Date()) {
       return res.status(400).json({ message: "Invalid or expired OTP" });
     }
 
-    // Mark as verified and clear the OTP
     const verifiedUser = await prisma.user.update({
       where: { email },
       data: {
@@ -87,7 +82,6 @@ export const verifyOtp = async (req, res) => {
       },
     });
 
-    // NOW we give them the token to enter the app
     const token = generateToken(verifiedUser.id);
 
     res.status(200).json({
@@ -103,12 +97,10 @@ export const verifyOtp = async (req, res) => {
     res.status(500).json({ message: "Verification error", error: error.message });
   }
 };
-// 🔵 LOGIN
 export const login = async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    // Find user
     const user = await prisma.user.findUnique({
       where: { username },
     });
@@ -117,12 +109,6 @@ export const login = async (req, res) => {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
-    // // 🔥 Block login if not verified
-    // if (!user.isVerified) {
-    //   return res.status(403).json({ message: "Please verify your email first" });
-    // }
-
-    // Compare password
     const isMatch = await bcrypt.compare(password, user.passwordHash);
 
     if (!isMatch) {
@@ -146,8 +132,6 @@ export const login = async (req, res) => {
   }
 };
 
-
-// 🔴 LOGOUT
 export const logout = async (req, res) => {
   try {
 

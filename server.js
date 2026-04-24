@@ -33,7 +33,6 @@ const io = new Server(server, {
   cors: { origin: CLIENT_URL, methods: ["GET", "POST"] },
 });
 
-// 🔥 ENHANCED SOCKET AUTH: Attach username to socket immediately
 io.use(async (socket, next) => {
   const token = socket.handshake.auth?.token;
   if (!token) return next(new Error("No token provided"));
@@ -42,7 +41,6 @@ io.use(async (socket, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     socket.user = decoded; 
 
-    // Fetch username once and store it on the socket object
     const user = await prisma.user.findUnique({ where: { id: decoded.id } });
     if (!user) return next(new Error("User not found"));
     
@@ -53,13 +51,11 @@ io.use(async (socket, next) => {
   }
 });
 
-// Memory store for tracking: socket.id -> { roomId, username }
 const activeUsers = new Map();
 
 io.on("connection", (socket) => {
   console.log(`User connected: ${socket.username} (${socket.id})`);
 
-  // Helper to broadcast unique usernames in a specific room
   const broadcastRoomUsers = (roomId) => {
     const usersInRoom = Array.from(activeUsers.values())
       .filter(u => u.roomId === roomId)

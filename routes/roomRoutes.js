@@ -12,13 +12,10 @@ import {protect} from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// protected
 router.post("/create", protect, createRoom);
 
-// public
 router.get("/public", getPublicRooms);
 
-// protected
 router.get("/my", protect, getUserRooms);
 
 router.get("/:roomId/messages",protect , getMessages);

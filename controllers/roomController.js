@@ -16,7 +16,6 @@ export const createRoom = async (req, res) => {
       },
     });
 
-    // ✅ VERY IMPORTANT → add creator as member
     await prisma.roomMember.create({
       data: {
         userId: req.user.id,
@@ -53,7 +52,6 @@ export const createRoom = async (req, res) => {
   }
 };
 
-// GET ALL PUBLIC ROOMS
 export const getPublicRooms = async (req, res) => {
   try {
     const rooms = await prisma.room.findMany({
@@ -61,7 +59,7 @@ export const getPublicRooms = async (req, res) => {
         type: "PUBLIC",
       },
       include: {
-        members: true, // for count
+        members: true,
       },
       orderBy: {
         createdAt: "desc",
@@ -82,7 +80,6 @@ export const getPublicRooms = async (req, res) => {
   }
 };
 
-// GET USER ROOMS (dashboard)
 export const getUserRooms = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -109,7 +106,6 @@ export const getUserRooms = async (req, res) => {
     res.status(500).json({ message: "Failed to fetch user rooms" });
   }
 };
-// Inside roomController.js
 
 export const getMessages = async (req, res) => {
   try {
@@ -119,7 +115,6 @@ export const getMessages = async (req, res) => {
       return res.status(400).json({ message: "Room ID is required" });
     }
 
-    // 1. Fetch the LAST 20 messages by ordering DESCENDING first
     const messages = await prisma.message.findMany({
       where: { roomId: roomId },
       include: { 
@@ -127,8 +122,8 @@ export const getMessages = async (req, res) => {
           select: { username: true } 
         } 
       },
-      orderBy: { createdAt: "desc" }, // 🔥 Get newest first
-      take: 20, // 🔥 Limit to the 20 most recent
+      orderBy: { createdAt: "desc" },
+      take: 20,
     });
 
     // 2. Reverse the array so the UI displays them chronologically (oldest to newest)
@@ -136,7 +131,7 @@ export const getMessages = async (req, res) => {
 
     res.json({ messages: chronologicalMessages });
   } catch (err) {
-    console.error("❌ Database Error in getMessages:", err.message);
+    console.error("Error in getMessages:", err.message);
     res.status(500).json({ 
       message: "Error fetching messages", 
       error: process.env.NODE_ENV === 'development' ? err.message : undefined 
@@ -144,7 +139,6 @@ export const getMessages = async (req, res) => {
   }
 };
 
-// Add this new function to roomController.js
 export const getRoomByToken = async (req, res) => {
   try {
     const { token } = req.params;
@@ -164,15 +158,11 @@ export const getRoomByToken = async (req, res) => {
   }
 };
 
-
-// Add this to the bottom of your roomController.js
-
 export const deleteRoom = async (req, res) => {
   try {
     const { roomId } = req.params;
     const userId = req.user.id;
 
-    // 1. Find the room to verify ownership
     const room = await prisma.room.findUnique({
       where: { id: roomId },
     });
@@ -181,13 +171,10 @@ export const deleteRoom = async (req, res) => {
       return res.status(404).json({ message: "Room not found" });
     }
 
-    // 2. Security Check: Only the creator can delete the room
     if (room.createdById !== userId) {
       return res.status(403).json({ message: "Access Denied: Only the creator can delete this room." });
     }
 
-    // 3. Safe Deletion: Use a transaction to delete all related data first
-    // This prevents Prisma Foreign Key constraint errors
     await prisma.$transaction([
       prisma.message.deleteMany({ where: { roomId } }),
       prisma.inviteLink.deleteMany({ where: { roomId } }),
