@@ -103,7 +103,8 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     const userData = activeUsers.get(socket.id);
     if (userData) {
-      const { roomId } = userData;
+      const { roomId, username } = userData;
+      socket.to(roomId).emit("userStoppedTyping", { username });
       activeUsers.delete(socket.id);
       broadcastRoomUsers(roomId);
     }
