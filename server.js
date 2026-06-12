@@ -6,7 +6,7 @@ import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import { connectDB } from "./config/db.js";
 import prisma from "./config/prisma.js";
-
+import { askBot } from "./controllers/botController.js";
 import authRoutes from "./routes/authRoutes.js";
 import roomRoutes from "./routes/roomRoutes.js";
 
@@ -18,7 +18,7 @@ const server = http.createServer(app);
 
 const CLIENT_URL = "https://orbit-frontend-g6um.onrender.com";
 
-app.use(cors({ origin: CLIENT_URL, credentials: true }));
+app.use(cors({ origin: [CLIENT_URL, process.env.FRONTEND_URL], credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -28,6 +28,7 @@ app.get("/", (req, res) => {
 });
 app.use("/api/auth", authRoutes);
 app.use("/api/rooms", roomRoutes);
+app.post("/api/rooms/bot/ask", askBot);
 
 const io = new Server(server, {
   cors: { origin: CLIENT_URL, methods: ["GET", "POST"] },
