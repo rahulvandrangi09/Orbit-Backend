@@ -90,7 +90,7 @@ io.on("connection", (socket) => {
         include: { sender: true },
       });
 
-      // 🔥 FIX: 'socket.to' prevents the sender from getting a duplicate message
+      
       socket.to(roomId).emit("receiveMessage", {
         id: saved.id,
         text: saved.content,
